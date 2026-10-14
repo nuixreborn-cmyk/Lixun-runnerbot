@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lixun Urban Run Mini App</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            background: #0f172a; 
+            color: white; 
+            text-align: center; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; 
+            padding: 15px;
+            user-select: none;
+        }
+        h2 { margin: 10px 0 5px; color: #38bdf8; text-shadow: 0 2px 10px rgba(56,189,248,0.3); }
+        .score-board { font-size: 18px; font-weight: bold; margin-bottom: 10px; color: #f1f5f9; }
+        
+        .game-container { position: relative; display: inline-block; width: 100%; max-width: 360px; }
+        canvas { 
+            background: linear-gradient(to bottom, #1e293b, #0f172a); 
+            border-radius: 16px; 
+            box-shadow: 0 8px 25px rgba(0,0,0,0.6); 
+            border: 2px solid #334155;
+            width: 100%;
+        }
+
+        /* Overlay Game Over */
+        #gameOverBox {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(4px);
+            border-radius: 16px;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        #gameOverBox h3 { font-size: 28px; color: #f43f5e; margin: 0; text-shadow: 0 0 10px rgba(244,63,94,0.5); }
+        #gameOverBox p { margin: 10px 0; font-size: 16px; color: #cbd5e1; }
+
+        .btn-container { margin-top: 15px; }
+        .btn-jump { 
+            background: linear-gradient(135deg, #38bdf8, #0284c7); 
+            border: none; 
+            padding: 16px 40px; 
+            font-size: 20px; 
+            font-weight: 800; 
+            border-radius: 50px; 
+            cursor: pointer; 
+            color: #ffffff; 
+            box-shadow: 0 4px 15px rgba(56,189,248,0.4);
+            width: 80%;
+            max-width: 280px;
+        }
+        .btn-jump:active { transform: scale(0.95); background: #0284c7; }
+        
+        .btn-restart {
+            background: #f43f5e;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>🏙️ LIXUN URBAN RUN</h2>
+    <div class="score-board">
+        🏆 Skor: <span id="score">0</span> | High Score: <span id="highScore">0</span>
+    </div>
+
+    <div class="game-container">
+        <canvas id="gameCanvas" width="360" height="200"></canvas>
+        
+        <!-- POPUP GAME OVER KALAU NABRAK KAKTUS -->
+        <div id="gameOverBox">
+            <h3>💀 GAME OVER!</h3>
+            <p>Dino lu nabrak kaktus! 🌵</p>
+            <p>Skor Akhir: <span id="finalScore">0</span></p>
+            <button class="btn-restart" onclick="restartGame()">🔄 MAIN LAGI</button>
+        </div>
+    </div>
+    
+    <div class="btn-container">
+        <button class="btn-jump" onclick="jump()">🚀 LOMPAT!</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const gameOverBox = document.getElementById("gameOverBox");
+
+        let isGameOver = false;
+        let score = 0;
+        let highScore = localStorage.getItem("lixun_highscore") || 0;
+        document.getElementById("highScore").innerText = highScore;
+
+        let dino = { x: 40, y: 135, size: 35, vy: 0, gravity: 0.65, jumpPower: -11, grounded: true, emoji: "🦖" };
+        let obstacle = { x: 360, y: 138, size: 30, speed: 4.5, emoji: "🌵" };
+
+        function jump() {
+            if (isGameOver) return;
+            if (dino.grounded) {
+                dino.vy = dino.jumpPower;
+                dino.grounded = false;
+            }
+        }
+
+        // Tap layar canvas langsung buat lompat juga bisa
+        canvas.addEventListener("touchstart", function(e) {
+            e.preventDefault();
+            jump();
+        });
+
+        function update() {
+            if (isGameOver) return;
+
+            // Gravitasi & Gerak Dino
+            dino.vy += dino.gravity;
+            dino.y += dino.vy;
+
+            if (dino.y > 135) {
+                dino.y = 135;
+                dino.vy = 0;
+                dino.grounded = true;
+            }
+
+            // Gerak Kaktus
+            obstacle.x -= obstacle.speed;
+            if (obstacle.x < -30) {
+                obstacle.x = 360 + Math.random() * 50;
+                score += 10;
+                document.getElementById("score").innerText = score;
+                obstacle.speed += 0.2; // Makin lama makin kenceng
+            }
+
+            // DETEKSI NABRAK / TABRAKAN (HITBOX ADJUSTMENT)
+            let dinoBox = { x: dino.x + 5, y: dino.y + 5, width: dino.size - 10, height: dino.size - 5 };
+            let cactusBox = { x: obstacle.x + 5, y: obstacle.y + 5, width: obstacle.size - 10, height: obstacle.size - 5 };
+
+            if (
+                dinoBox.x < cactusBox.x + cactusBox.width &&
+                dinoBox.x + dinoBox.width > cactusBox.x &&
+                dinoBox.y < cactusBox.y + cactusBox.height &&
+                dinoBox.y + dinoBox.height > cactusBox.y
+            ) {
+                triggerGameOver();
+            }
+        }
+
+        function triggerGameOver() {
+            isGameOver = true;
+            dino.emoji = "💥"; // Berubah jadi ledakan saat mati
+            
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem("lixun_highscore", highScore);
+                document.getElementById("highScore").innerText = highScore;
+            }
+
+            document.getElementById("finalScore").innerText = score;
+            gameOverBox.style.display = "flex";
+        }
+
+        function restartGame() {
+            isGameOver = false;
+            score = 0;
+            document.getElementById("score").innerText = score;
+            obstacle.x = 360;
+            obstacle.speed = 4.5;
+            dino.y = 135;
+            dino.vy = 0;
+            dino.emoji = "🦖";
+            gameOverBox.style.display = "none";
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Gambar Garis Tanah
+            ctx.fillStyle = "#334155";
+            ctx.fillRect(0, 170, canvas.width, 2);
+
+            // Gambar Dino (Emoji 🦖)
+            ctx.font = `${dino.size}px serif`;
+            ctx.fillText(dino.emoji, dino.x, dino.y + dino.size - 5);
+
+            // Gambar Kaktus (Emoji 🌵)
+            ctx.font = `${obstacle.size}px serif`;
+            ctx.fillText(obstacle.emoji, obstacle.x, obstacle.y + obstacle.size - 2);
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        loop();
+    </script>
+</body>
+</html>

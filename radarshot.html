@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lixun Radar Shot</title>
+    <style>
+        body { background: #020617; color: #38bdf8; text-align: center; font-family: sans-serif; padding: 15px; }
+        canvas { background: #0f172a; border-radius: 50%; border: 3px solid #38bdf8; box-shadow: 0 0 20px rgba(56,189,248,0.4); }
+        #winBox { display: none; color: #facc15; font-size: 24px; font-weight: bold; margin-top: 15px; }
+        #loseBox { display: none; color: #f43f5e; font-size: 22px; margin-top: 15px; }
+    </style>
+</head>
+<body>
+    <h2>📡 RADAR SHOT</h2>
+    <h3>LEVEL: <span id="level">1</span> / 10000</h3>
+    <canvas id="radarCanvas" width="300" height="300"></canvas>
+
+    <div id="winBox">🏆 TAMAT REWARD FOR YOU! 🏆<br>SELAMAT COMMANDER LIXUN MENANG TOTAL!</div>
+    <div id="loseBox">💀 MUSUH TEMBUS RADAR! GAME OVER! <br><button onclick="restart()" style="padding:10px 20px; margin-top:10px;">🔄 Coba Lagi</button></div>
+
+    <script>
+        const canvas = document.getElementById("radarCanvas");
+        const ctx = canvas.getContext("2d");
+        let level = 1, enemies = [], isGameOver = false;
+
+        function spawnEnemy() {
+            let angle = Math.random() * Math.PI * 2;
+            enemies.push({ x: 150 + Math.cos(angle)*130, y: 150 + Math.sin(angle)*130, r: 10 });
+        }
+        spawnEnemy();
+
+        // Tap musuh merah di radar buat hancurin!
+        canvas.addEventListener("click", function(e) {
+            if(isGameOver) return;
+            let rect = canvas.getBoundingClientRect();
+            let mx = e.clientX - rect.left;
+            let my = e.clientY - rect.top;
+
+            enemies.forEach((enemy, index) => {
+                let dist = Math.hypot(mx - enemy.x, my - enemy.y);
+                if(dist < 25) {
+                    enemies.splice(index, 1);
+                    level++;
+                    document.getElementById("level").innerText = level;
+
+                    if(level >= 10000) {
+                        document.getElementById("winBox").style.display = "block";
+                        isGameOver = true;
+                    } else {
+                        spawnEnemy();
+                    }
+                }
+            });
+        });
+
+        function update() {
+            if(isGameOver) return;
+            enemies.forEach(enemy => {
+                // Musuh bergerak mendekati pusat radar (150, 150)
+                let dx = 150 - enemy.x;
+                let dy = 150 - enemy.y;
+                let angle = Math.atan2(dy, dx);
+                enemy.x += Math.cos(angle) * (0.5 + level*0.05);
+                enemy.y += Math.sin(angle) * (0.5 + level*0.05);
+
+                // Jika terlanjur masuk daerah tengah (kalah)
+                if(Math.hypot(150 - enemy.x, 150 - enemy.y) < 15) {
+                    isGameOver = true;
+                    document.getElementById("loseBox").style.display = "block";
+                }
+            });
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Lingkaran Radar
+            ctx.strokeStyle = "rgba(56,189,248,0.3)";
+            ctx.beginPath(); ctx.arc(150, 150, 100, 0, Math.PI*2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(150, 150, 50, 0, Math.PI*2); ctx.stroke();
+
+            // Pusat Radar
+            ctx.fillStyle = "#38bdf8"; ctx.beginPath(); ctx.arc(150, 150, 8, 0, Math.PI*2); ctx.fill();
+
+            // Gambar Musuh Merah
+            enemies.forEach(enemy => {
+                ctx.fillStyle = "#f43f5e";
+                ctx.beginPath(); ctx.arc(enemy.x, enemy.y, enemy.r, 0, Math.PI*2); ctx.fill();
+            });
+        }
+
+        function restart() {
+            level = 1; enemies = []; isGameOver = false;
+            document.getElementById("level").innerText = 1;
+            document.getElementById("loseBox").style.display = "none";
+            spawnEnemy();
+        }
+
+        function loop() { update(); draw(); requestAnimationFrame(loop); }
+        loop();
+    </script>
+</body>
+</html>
